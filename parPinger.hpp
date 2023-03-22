@@ -53,7 +53,7 @@
 #include <mutex>
 #include <time.h>
 #include <condition_variable>
-#include "mls.h"
+//#include "mls.h"
 
 #define	DEFDATALEN	(ICMP_MINLEN)	/* default data length */
 #define	MAXIPLEN	60
@@ -84,6 +84,8 @@ namespace pinger
     std::vector<point> send_times;
     double get_interval();
 
+    static void* Thread(void *vargp);
+
     std::vector<std::vector<long double>> curResult;
     std::vector<std::vector<long double>> probe();
     void set_ping_interval_sec(double value);
@@ -100,7 +102,7 @@ namespace pinger
     uint16_t in_cksum(uint16_t *addr, unsigned len);
     vector<bool> currPIR_MLS;
     long long pir_count;
-    mls MLSgen;
+    //mls MLSgen;
     void timespec_diff(struct timespec &startOverhead, struct timespec &stopOverhead, struct timespec &sendInterval, struct timespec &computed_sleepInterval);
   };
 }

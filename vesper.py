@@ -161,6 +161,7 @@ class Monitor:
         self.start_time = time.time()
         self.prober = pp.PyParPinger()
         self.establish_ping_intervals()
+        print("Transmission frequencies established!")
         self.initialized = True
 
     def establish_ping_intervals(self):
@@ -171,12 +172,15 @@ class Monitor:
             if profile.tx_interval == -1:
                 progressbar(len(self.profiles), i + 1, posttext="Sampling: " + profile.ip_addr)
                 self.prober.set_target_ip(bytes(profile.ip_addr,"ascii"))
-                profile.set_tx_interval(self.prober.get_interval())
+                
+                tx_interval = self.prober.get_interval()
+                profile.set_tx_interval(tx_interval)
                 if (profile.tx_interval > 0.001) or (profile.tx_interval < 0):
                     print(profile.ip_addr + " took too long to respond. Using 1Khz.")
                     print("Is "+profile.ip_addr+" inside your LAN?")
             else: #use saved value
                 progressbar(len(self.profiles), i + 1, posttext="Loading: " + profile.ip_addr)
+            profile.tx_interval = 0.1
             i+=1
 
     def save_obj(self, obj, name):
@@ -193,6 +197,8 @@ class Monitor:
         if self.config['rt_plotting']:
             self.plot_score_setup()
 
+       
+
         self.start_time = time.time()
         probe_count = 0
         while True:
@@ -204,6 +210,7 @@ class Monitor:
                 #prep prober
                 targetIP = self.targetIPs[indx]
                 profile = self.profiles[targetIP]
+                
                 self.prober.set_target_ip(bytes(targetIP,"ascii"))
                 self.prober.set_ping_interval_sec(profile.tx_interval)
                 
@@ -214,7 +221,9 @@ class Monitor:
                 probe_count += 1
 
                 #execute/train profile
+                
                 label, score = profile.process(raw_probe)
+                
                 status[targetIP] = [label,score,profile.trainProgress(),profile.tx_interval,stop-start,profile.n_packets_lost_lastprobe]
 
                 time.sleep(self.config['probe_interval']/1000)
@@ -256,6 +265,7 @@ class Monitor:
             if label == -1:
                 state = 'Abnormal'
                 note = 'Abnormal connection detected'
+                self.alerting(ip)
             if label == -2:
                 if score >= 0:
                     state = 'Normal?'
@@ -314,6 +324,12 @@ class Monitor:
             plt.draw()
             plt.pause(0.01)
             plt.show(block=False)
+    
+    def alerting(ip):
+        message = "logger "
+        message += f"Anomalie detected on IP-adress {str(ip)}."
+        os.system(message)
+
 
 class Profile:
     def __init__(self,ip,train_size=100,tx_interval=-1,score_window=10):

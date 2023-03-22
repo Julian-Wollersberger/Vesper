@@ -20,7 +20,8 @@ namespace pinger
             ping_interval_sec = 0.0001;
         this->set_ping_interval_sec(ping_interval_sec);
         this->pir_count = 0;
-        this->MLSgen.setBits(10); //1023 length
+        //this->MLSgen.setBits(10); //1023 length
+        
   }
   parPinger::~parPinger() {}
 
@@ -35,6 +36,12 @@ namespace pinger
         this->ping_interval.tv_nsec = (((long double)value)*0.58 - ping_interval.tv_sec)* 1000000000L;
   }
 
+  void* parPinger::Thread(void *vargp) {
+
+    cout<<"Yes thead!"<<endl;
+    return NULL;
+  }
+
   std::vector<std::vector<long double>> parPinger::probe()
   {
     //Clear data from last probe
@@ -42,16 +49,23 @@ namespace pinger
     send_times.clear();
     curResult.clear();
 
+    
+
     if(this->targetIP.compare("") == true){
         cout<<"parProber: Cannot probe without first setting an IP!"<<endl;
         return curResult;
     }
 
+    
+
     //Make threads
     pthread_create(&probeRecverThread, NULL, parPinger::recvMain, (void*)this);
     pthread_create(&probeSenderThread, NULL, parPinger::sendMain, (void*)this);
 
-    pthread_join(probeRecverThread,NULL);//wait for threads to complete
+    //wait for threads to complete
+    //pthread_join(probeSenderThread,NULL);
+    pthread_join(probeRecverThread,NULL);
+    
     return curResult;
   }
 
@@ -66,7 +80,7 @@ void* parPinger::recvMain(void *args)
     clock_gettime(CLOCK_MONOTONIC, &rx.t);
 
     /*Setup receive socket*/
-    int s, i, cc, packlen, datalen = 1500 + ICMP_MINLEN;
+    int s, i, cc, packlen, datalen = 100 + ICMP_MINLEN;
     struct sockaddr_in to, from;
     fd_set rfds;
     int ret, fromlen, hlen;
@@ -76,6 +90,8 @@ void* parPinger::recvMain(void *args)
     string hostname;
     u_char *packet, outpack[MAXPACKET];
     struct ip *ip;
+
+    
 
     // try to convert as dotted decimal address, else if that fails assume it's a hostname
     to.sin_addr.s_addr = inet_addr(prthr->targetIP.c_str());
@@ -98,6 +114,9 @@ void* parPinger::recvMain(void *args)
         free(packet);
         return NULL;
     }
+
+  
+   
     // Watch for socket inputs.
     FD_ZERO(&rfds);
     FD_SET(s, &rfds);
@@ -141,6 +160,8 @@ void* parPinger::recvMain(void *args)
             //break;
         }
 
+        
+
         // Now the ICMP part
         icp = (struct icmp *)(packet + hlen);
         if (icp->icmp_type == ICMP_ECHOREPLY)
@@ -163,6 +184,8 @@ void* parPinger::recvMain(void *args)
         if(rx_count == prthr->currPIR_MLS.size())
             break;
     }
+
+       
 
     /*Clean up*/
     close(s);
@@ -224,6 +247,8 @@ void* parPinger::recvMain(void *args)
         cout<<"Lost: "<< misscount <<" out of "<< prthr->currPIR_MLS.size() <<" expected responses."<<endl;
     }
 
+    
+
     ///// Prep result vectors ////
     vector<long double> TX_TIMES;
     vector<long double> RX_TIMES;
@@ -241,6 +266,8 @@ void* parPinger::recvMain(void *args)
     result.push_back(MLS_SEQ);
     prthr->curResult = result;
     recv_times.clear();
+
+    return NULL;
 }
 
 
@@ -295,11 +322,13 @@ struct timespec parPinger::tsSubtract (struct  timespec  time1, struct  timespec
     usleep(100000); // 100ms
 
     /* Send Probe */
-    //prthr->currPIR_MLS = prthr->MLSgen.get_seq();
-    prthr->currPIR_MLS = {1,0,1,0,0,1,1,1,0,1,0,0,0,0,0,1,1,1,1,0,1,1,0,1,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,1,0,1,1,1,1,0,0,0,1,1,0,0,0,1,1,0,1,1,1,0,1,1,0,0,0,0,1,1,1,1,0,0,1,0,0,1,1,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,0,0,0,1,1,0,1,0,1,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,0,1,1,1,1,1,0,1,0,1,1,1,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,1,1,1,1,1,0,1,1,0,1,0,1,0,1,0,0,0,1,0,1,1,1,1,0,1,1,0,0,1,1,1,0,0,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,1,0,0,1,0,1,0,1,1,0,0,1,0,1,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,0,1,1,0,1,1,0,0,1,1,0,0,0,0,1,1,0,1,0,1,1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,0,1,1,0,1,1,1,0,0,1,0,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,1,1,1,0,0,1,1,0,1,0,1,0,1,1,0,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1,1,0,1,1,0,0,0,1,0,1,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,0,1,1,0,1,0,0,1,0,0,1,1,1,1,0,1,1,1,1,1,0,0,0,1,0,1,0,1,0,1,1,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,0,0,1,0,0,0,1,1,1,1,1,1,0,1,1,0,0,0,1,1,1,0,1,0,1,1,0,1,0,1,0,0,0,0,1,1,0,0,1,1,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,0,0,0,1,0,1,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,1,0,0,1,1,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,1,0,1,0,0,1,1,0,1,0,1,1,1,1,1,0,0,1,1,0,0,0,1,1,1,1,1,0,0,1,0,0,0,1,1,1,0,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,0,1,0,1,0,1,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,1,1,1,0,1,0,0,1,0,1,0,1,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,1,0,1,0,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,1,0,0,1,0,1,1,0,1,0,1,1,0,0,1,1,1,1,0,1,0,1,1,0,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,0,1,0,1,0,1,0,0,1,1,0,0,1,1,0,0,1,0,1,0,0,1,1,1,1,1,0,1,0,0,1,1,1,0,0,0,0,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,1,0,1,0,0,1,1,0,1,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,0,0,1,1,0,0,1,1,1,0,1,1,1,0,1,1,1,0,0,1,1,1};
+    //prthr->currPIR_MLS = prthr->.get_seq();
+    //prthr->currPIR_MLS = {1,0,1,0,0,1,1,1,0,1,0,0,0,0,0,1,1,1,1,0,1,1,0,1,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,1,0,1,1,1,1,0,0,0,1,1,0,0,0,1,1,0,1,1,1,0,1,1,0,0,0,0,1,1,1,1,0,0,1,0,0,1,1,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,0,0,0,1,1,0,1,0,1,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,0,1,1,1,1,1,0,1,0,1,1,1,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,1,1,1,1,1,0,1,1,0,1,0,1,0,1,0,0,0,1,0,1,1,1,1,0,1,1,0,0,1,1,1,0,0,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,1,0,0,1,0,1,0,1,1,0,0,1,0,1,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,0,1,1,0,1,1,0,0,1,1,0,0,0,0,1,1,0,1,0,1,1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,0,1,1,0,1,1,1,0,0,1,0,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,1,1,1,0,0,1,1,0,1,0,1,0,1,1,0,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1,1,0,1,1,0,0,0,1,0,1,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,0,1,1,0,1,0,0,1,0,0,1,1,1,1,0,1,1,1,1,1,0,0,0,1,0,1,0,1,0,1,1,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,0,0,1,0,0,0,1,1,1,1,1,1,0,1,1,0,0,0,1,1,1,0,1,0,1,1,0,1,0,1,0,0,0,0,1,1,0,0,1,1,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,0,0,0,1,0,1,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,1,0,0,1,1,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,1,0,1,0,0,1,1,0,1,0,1,1,1,1,1,0,0,1,1,0,0,0,1,1,1,1,1,0,0,1,0,0,0,1,1,1,0,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,0,1,0,1,0,1,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,1,1,1,0,1,0,0,1,0,1,0,1,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,1,0,1,0,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,1,0,0,1,0,1,1,0,1,0,1,1,0,0,1,1,1,1,0,1,0,1,1,0,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,0,1,0,1,0,1,0,0,1,1,0,0,1,1,0,0,1,0,1,0,0,1,1,1,1,1,0,1,0,0,1,1,1,0,0,0,0,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,1,0,1,0,0,1,1,0,1,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,0,0,1,1,0,0,1,1,1,0,1,1,1,0,1,1,1,0,0,1,1,1};
+    prthr->currPIR_MLS = {1,0,1,0,0,1,1,1,0,1,0,0,0,0,0,1,1,1,1,0,1,1,0,1,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,0,0,1,0,1,0,0,1,0,0};
     prthr->pir_count++;//update id for current pir
     prthr->send_probe(prthr->targetIP, prthr->currPIR_MLS, prthr->threadID);
 
+    return NULL;
   }
 
 
@@ -308,7 +337,7 @@ struct timespec parPinger::tsSubtract (struct  timespec  time1, struct  timespec
 double parPinger::get_interval()
 {
     double sumRTTs = 0;
-    int s, i, cc, packlen, datalen = 1500;
+    int s, i, cc, packlen, datalen = 100;
     struct hostent *hp;
     struct sockaddr_in to, from;
     //struct protoent	*proto;
@@ -500,7 +529,7 @@ uint16_t parPinger::in_cksum(uint16_t *addr, unsigned len)
 int parPinger::send_probe(string target_ip, vector<bool> mls_seq, uint16_t scanner_id)
 {
     /* Open Sending Socket */
-    int s, i, cc, packlen, datalen = 1500;
+    int s, i, cc, packlen, datalen = 100;
     struct hostent *hp;
     struct sockaddr_in to, from;
     //struct protoent	*proto;
@@ -557,6 +586,8 @@ int parPinger::send_probe(string target_ip, vector<bool> mls_seq, uint16_t scann
     int count = 0;
     point tx;
 
+  
+
     for(int k = 0; k < mls_seq.size(); k++)
     {
         //calc wait time
@@ -569,7 +600,7 @@ int parPinger::send_probe(string target_ip, vector<bool> mls_seq, uint16_t scann
         nanosleep(&wait_time,&tmp);
 
         //setup ping
-        cc = ((int)mls_seq[k])*1500 + ICMP_MINLEN;
+        cc = ((int)mls_seq[k])*100 + ICMP_MINLEN;
 
         //update checksum
         icp->icmp_cksum = 0;
@@ -599,6 +630,8 @@ int parPinger::send_probe(string target_ip, vector<bool> mls_seq, uint16_t scann
     }
     clock_gettime(CLOCK_MONOTONIC, &stop); //reception time
     //cout<<endl<<endl;
+
+      
 
     /* Close Sending Socket */
     close(s);
