@@ -276,6 +276,7 @@ class Monitor:
                 else:
                     state = 'Abnormal'
                     note = 'Abnormal connection detected. Losing Packets ('+str(lost_packets)+'/1023)'
+                    self.alerting(ip)
             if label == -3:
                 state = 'unknown'
                 note = 'Lost connection'
@@ -329,7 +330,7 @@ class Monitor:
             plt.show(block=False)
     
     def alerting(self, ip):
-        message = "logger "
+        message = "logger --socket /home/level3/Documents/Resilient\\ Rails/Vesper/syslog/syslog-vesper.socket "
         message += f"Anomalie detected on IP-adress {str(ip)}."
         os.system(message)
 
@@ -580,8 +581,7 @@ if __name__ == '__main__':
     parser.add_argument('-w',type=int,default=10,help="Sets the sliding window size <W> used to average the anomaly scores. A larger window will provide fewer false alarms, but it will also increase the detection delay. \nDefault is 10.")
     parser.add_argument('--reset',action='store_true',help="Deletes the current configuration and all IP profiles stored on disk before initilizing vesper")
 
-
-    args = parser.parse_known_args()[0]
+    args = parser.parse_args()
 
     make_plot = True if (args.p is not None) else False
     mon = Monitor(profiles_path=args.f, target_ips=args.i, num_trainprobes=args.t, probe_interval=args.r, rt_plotting=args.p, window_size=args.w, delete_cache = args.reset)

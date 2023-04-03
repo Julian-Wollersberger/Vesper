@@ -99,6 +99,20 @@ optional arguments:
   --reset         Deletes the current configuration and all IP profiles stored on disk before initializing vesper.
 ```
 
+## Running tests
+First, install `pytest` for both the normal user and root:
+
+````
+pip install pytest
+sudo pip install pytest
+````
+
+Then run the tests with
+````
+pytest
+````
+(TODO: Which tests need sudo?)
+
 # License
 See the [LICENSE](LICENSE) file for details
 
