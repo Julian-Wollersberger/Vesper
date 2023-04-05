@@ -21,6 +21,7 @@
 
 import os
 import subprocess
+# FIXME: Doesn't detect changes to the code.
 if not os.path.isfile("parPinger_wrapper.cpp"): # has not yet been compiled by cython
     print("Compiling required Cython libraries")
     cmd = "python setup.py build_ext --inplace"
@@ -39,18 +40,26 @@ from sklearn.preprocessing import StandardScaler
 import datetime
 import matplotlib.pyplot as plt
 from scipy.stats import ks_2samp
-
-sys.settrace
+import logging
 
 '''
 Run this script from the command line with -h to see instructions and arguments
 
 #> python vesper.py -h
-
 '''
 
 class Monitor:
-    def __init__(self, profiles_path="vesper_profiles/", target_ips=[""], num_trainprobes=-1, probe_interval=-1, rt_plotting=False, window_size = 20, delete_cache=False):
+    def __init__(self, profiles_path="vesper_profiles/", target_ips=[""], num_trainprobes=-1, probe_interval=-1, rt_plotting=False, window_size = 20, delete_cache=False, log="none"):
+        # Initialize the logger
+        self.log = logging.Logger(__name__)
+        self.log.setLevel(logging.INFO)
+        if log == "none":
+            self.log.disabled = True
+        elif log == "stderr":
+            self.log.addHandler(logging.StreamHandler())
+        else:
+            raise Exception(f"Unknown logging backend '{log}'")
+
         #Try to load last used configuration
         retrain = False
         self.initialized = False
@@ -137,7 +146,13 @@ class Monitor:
         for ip in self.targetIPs:
             for prof in profs:
                 if ip == prof[:-4]:
-                    self.profiles[ip] = self.load_obj(os.path.join(self.config['profiles_path'], ip))
+                    try:
+                        self.profiles[ip] = self.load_obj(os.path.join(self.config['profiles_path'], ip))
+                    except EOFError as e:
+                        # FIXME: Use a propper logger.
+                        print(f"Warning: Couldn't read the profile for {ip}. Retraining instead.")
+                        print(e)
+                        self.profiles[ip] = Profile(ip, self.config['num_trainprobes'], score_window=self.config['window_size'])
                     if retrain:
                         self.profiles[ip].set_train_size(self.config['num_trainprobes'])
                     if self.profiles[ip].score_window != self.config['window_size']:
@@ -191,16 +206,17 @@ class Monitor:
             pkl.dump(obj, f, pkl.HIGHEST_PROTOCOL)
 
     def load_obj(self, name):
+        """
+        Deserialize the saved profile.
+        """
         with open(name + '.pkl', 'rb') as f:
-            return pkl.load(f)
-
+                return pkl.load(f)
+            
     def run(self):
         if len(self.targetIPs) == 0:
             raise Exception('Cannot run prober if no target IPs have been set.')
         if self.config['rt_plotting']:
             self.plot_score_setup()
-
-       
 
         self.start_time = time.time()
         probe_count = 0
@@ -268,7 +284,7 @@ class Monitor:
             if label == -1:
                 state = 'Abnormal'
                 note = 'Abnormal connection detected'
-                self.alerting(ip)
+                self.alert(ip)
             if label == -2:
                 if score >= 0:
                     state = 'Normal?'
@@ -276,7 +292,7 @@ class Monitor:
                 else:
                     state = 'Abnormal'
                     note = 'Abnormal connection detected. Losing Packets ('+str(lost_packets)+'/1023)'
-                    self.alerting(ip)
+                    self.alert(ip)
             if label == -3:
                 state = 'unknown'
                 note = 'Lost connection'
@@ -291,6 +307,9 @@ class Monitor:
         print("Vesper Status  --  Runtime: "+ "{:0>8}".format(str(datetime.timedelta(seconds=time.time()-self.start_time))))
         print(table)
         print("Sent "+"{:,}".format(probe_count)+" probes.")
+
+    def alert(self, ip):
+        self.log.warning(f"Security Alert: Vesper detected a possible Man-in-the-Middle-Attack to {str(ip)}. The connection latency profile has changed. This could also be caused by an intended change in network topology.")
 
     def plot_score_setup(self):
         curTime_min = (time.time() - self.start_time) / 60
@@ -328,11 +347,6 @@ class Monitor:
             plt.draw()
             plt.pause(0.01)
             plt.show(block=False)
-    
-    def alerting(self, ip):
-        message = "logger --socket /home/level3/Documents/Resilient\\ Rails/Vesper/syslog/syslog-vesper.socket "
-        message += f"Anomalie detected on IP-adress {str(ip)}."
-        os.system(message)
 
 
 class Profile:
@@ -580,10 +594,11 @@ if __name__ == '__main__':
     parser.add_argument('-r',type=int,default=0,help="Sets the wait time <R> between each probe in miliseconds. \nDefault is 0.")
     parser.add_argument('-w',type=int,default=10,help="Sets the sliding window size <W> used to average the anomaly scores. A larger window will provide fewer false alarms, but it will also increase the detection delay. \nDefault is 10.")
     parser.add_argument('--reset',action='store_true',help="Deletes the current configuration and all IP profiles stored on disk before initilizing vesper")
+    parser.add_argument('--log', default="none", choices=["none", "stderr"], type=str, help='Where to log alerts. Possible values are "none" and "stderr". ')
 
     args = parser.parse_args()
 
     make_plot = True if (args.p is not None) else False
-    mon = Monitor(profiles_path=args.f, target_ips=args.i, num_trainprobes=args.t, probe_interval=args.r, rt_plotting=args.p, window_size=args.w, delete_cache = args.reset)
+    mon = Monitor(profiles_path=args.f, target_ips=args.i, num_trainprobes=args.t, probe_interval=args.r, rt_plotting=args.p, window_size=args.w, delete_cache = args.reset, log=args.log)
     if mon.initialized: # False if there was an error or termination during initilization
         mon.run()
