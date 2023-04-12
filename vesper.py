@@ -56,7 +56,11 @@ class Monitor:
         if log == "none":
             self.log.disabled = True
         elif log == "stderr":
-            self.log.addHandler(logging.StreamHandler())
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                fmt="[%(asctime)s] %(levelname)s: %(message)s",
+                datefmt="%Y-%m-%dT%H:%M:%S%zZ")) # ISO 8601 format with timezone offset
+            self.log.addHandler(handler)
         else:
             raise Exception(f"Unknown logging backend '{log}'")
 
