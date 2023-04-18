@@ -1,2 +1,6 @@
 vesper_profiles
 build
+__pycache__
+parPinger_wrapper.cpp
+parPinger_wrapper.cpython*
+thread
