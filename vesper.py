@@ -32,7 +32,6 @@ import parPinger_wrapper as pp # an extrernal c++ library which performs all the
 import time
 import pickle as pkl
 import numpy as np
-import sys
 from prettytable import PrettyTable
 from collections import OrderedDict
 from sklearn.neighbors import LocalOutlierFactor
@@ -124,6 +123,8 @@ class Monitor:
         #Load list of target IPs (if exists)
         self.targetIPs = []
         if self.config['target_ips'][0][-4:] == ".csv":
+            if len(self.config['target_ips']) != 1:
+                raise Exception("Only one file with target IPs is supported, but got " + len(self.config['target_ips']))
             ipfile = self.config['target_ips'][0]
             if os.path.isfile(ipfile):
                 file = open(ipfile, 'r')
