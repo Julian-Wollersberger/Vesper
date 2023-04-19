@@ -124,6 +124,19 @@ See the [LICENSE](LICENSE) file for details
 * Port to Windows
 * Decrease false alarms by introducing custom thesholds (currently using sklearn's lof built-in threshold)
 
+# Known Problems
+* There are race conditions and memory corruption in parPinger.cpp.
+  Especially with heavy packet loss or unexpected ping responses, Vesper crashes.
+  Some seen crash messages:
+  * corrupted size vs. prev_size while consolidating
+  * Lost: 716 out of 1022 expected responses.
+    python: malloc.c:2617: sysmalloc: Assertion `(old_top == initial_top (av) && old_size == 0) || ((unsigned long) (old_size) >= MINSIZE && prev_inuse (old_top) && ((unsigned long) old_end & (pagesize - 1)) == 0)' failed.
+  * Lost: 1018 out of 1022 expected responses.
+    double free or corruption (top)
+    Aborted
+* The Probe Duration is unpredictable can can get way to high (>60sec) with lossy connections.
+* When there is no connection, Vesper tries to sample frequencies for way to long (minutes) before using a default.
+
 # Citations
 If you use the source code in any way, please cite:
 
