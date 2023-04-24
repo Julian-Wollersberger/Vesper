@@ -132,7 +132,8 @@ class Monitor:
                 file.close()
                 if len(ips) == 0:
                     raise Exception(ipfile +" is empty. Type 'vesper -h' for help")
-                self.targetIPs = [ip.rstrip() for ip in ips]
+                # remove trailing whitespace and empty entries
+                self.targetIPs = [ip.rstrip() for ip in ips if ip != ""]
             else:
                 raise Exception("Can't find "+ipfile+". Type 'vesper -h' for help")
         elif self.config['target_ips'][0] != "":
